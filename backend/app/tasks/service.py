@@ -1,7 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .schemas import TaskCreateModel ,TaskUpdater
 from sqlmodel import select ,desc
-from .models import Task
+from app.db.models import Task
 from datetime import datetime
 
 class TaskService:
@@ -10,6 +10,10 @@ class TaskService:
         result = await session.exec(statement)
         return result.all()
     
+    async def get_user_tasks(self , user_uid:str,session:AsyncSession):
+        statement = select(Task).where(Task.user_uid == user_uid).order_by(desc(Task.created_at))
+        result = await session.exec(statement)
+        return result.all()
     
     async def get_task(self,task_uid:str, session:AsyncSession):
         statement = select(Task).where(Task.uid == task_uid)
@@ -18,11 +22,12 @@ class TaskService:
         return task if not None else None
     
     
-    async def create_task(self,task_data:TaskCreateModel,session:AsyncSession):
+    async def create_task(self,task_data:TaskCreateModel,user_uid:str,session:AsyncSession):
         task_data_dict = task_data.model_dump()
         new_task =Task(
             **task_data_dict
         )
+        new_task.user_uid = user_uid
         new_task.due_date = datetime.strptime(task_data_dict['due_date'],"%Y-%m-%d").date()
         session.add(new_task)
         await session.commit()

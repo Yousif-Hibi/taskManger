@@ -1,5 +1,8 @@
 from pydantic import BaseModel ,Field
 from datetime import datetime
+from typing import List
+from app.tasks.schemas import Task
+
 import uuid 
 
 class UserCreateModel(BaseModel):
@@ -20,6 +23,17 @@ class UserModel(BaseModel):
     created_at: datetime 
     upgraded_at : datetime 
     
+    
 class UserLoginModel(BaseModel):
-    email : str = Field(max_lenght=40)
+    email : str = Field(max_length=40)
     password : str = Field(min_length=6)
+
+class UserAssignedTaskModel(UserModel):
+    assigned_tasks: List[Task] = []
+
+class UserCreatedTaskModel(UserModel):
+    created_tasks: List[Task] = []
+
+
+
+

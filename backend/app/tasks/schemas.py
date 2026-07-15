@@ -1,10 +1,12 @@
 from pydantic import BaseModel
 from datetime import datetime ,date
+from typing import Optional
 import uuid
 
 class Task(BaseModel) :
     uid : uuid.UUID
-    user_id : int
+    user_uid: Optional[uuid.UUID] = None 
+    assigned_to: Optional[uuid.UUID] = None
     title : str
     description : str
     status : str

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status
-from .schemas import UserCreateModel, UserModel, UserLoginModel
+from .schemas import UserCreateModel, UserModel,UserAssignedTaskModel,UserLoginModel,UserAssignedTaskModel,UserCreatedTaskModel
 from .service import UserService
 from app.db.task_db import get_session
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -7,10 +7,13 @@ from fastapi.exceptions import HTTPException
 from .utils import create_access_token, decode_token, verify_password
 from datetime import timedelta, datetime
 from fastapi.responses import JSONResponse
-from .dependencies import RefreshTokenBearer
+from .dependencies import RefreshTokenBearer ,AccessTokenBearer , RoleChecker, get_currect_user
+from app.db.redis import add_jti_to_blocklist
+from app.errors import UserAlreadyExists ,UserNotFound ,InvaildCredentials ,InvalidToken
 
 auth_router = APIRouter()
 user_service = UserService()
+role_checker = RoleChecker(['admin',"user"])
 
 REFRESH_TOKEN_EXPIRY = 2
 
@@ -24,10 +27,7 @@ async def create_user_Account(
     email = user_data.email
     user_exists = await user_service.user_exists(email, session)
     if user_exists:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User with email already exists",
-        )
+        raise UserAlreadyExists()
     new_user = await user_service.create_user(user_data, session)
 
     return new_user
@@ -47,7 +47,7 @@ async def login_users(
 
         if password_vaild:
             access_token = create_access_token(
-                user_data={"email": user.email, "user_uid": str(user.uid)}
+                user_data={"email": user.email, "user_uid": str(user.uid), "role":user.role}
             )
             refresh_token = create_access_token(
                 user_data={"email": user.email, "user_uid": str(user.uid)},
@@ -63,9 +63,7 @@ async def login_users(
                     "user": {"email": user.email, "uid": str(user.uid)},
                 }
             )
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN, detail="Invaild Email or Password"
-    )
+    raise InvaildCredentials()
 
 
 @auth_router.get("/refresh_token")
@@ -76,6 +74,21 @@ async def get_new_access_token(token_details: dict = Depends(RefreshTokenBearer(
         new_access_token = create_access_token(user_data=token_details["user"])
         return JSONResponse(content={"access_token": new_access_token})
 
-    return HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Or expired token"
+    return InvalidToken()
+    
+@auth_router.get('/me',response_model=UserAssignedTaskModel)
+async def get_current_user(user = Depends(get_currect_user),_:bool=Depends(role_checker)):
+    return user
+
+
+@auth_router.get('/logout')
+async def revoke_token(token_details:dict= Depends(AccessTokenBearer())):
+    jti = token_details['jti']
+    await add_jti_to_blocklist(jti)
+    return JSONResponse(
+        content = {
+            "message":"logged Our Successfuly"
+        },
+        status_code = status.HTTP_200_OK
     )
+

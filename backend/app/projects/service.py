@@ -1,7 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .schemas import ProjectCreateModel ,ProjectUpdater
 from sqlmodel import select ,desc
-from .models import Project
+from app.db.models import Project
 from datetime import datetime
 
 class ProjectService:
@@ -18,11 +18,12 @@ class ProjectService:
         return Project if not None else None
     
     
-    async def create_Project(self,Project_data:ProjectCreateModel,session:AsyncSession):
+    async def create_Project(self,Project_data:ProjectCreateModel,user_uid:str,session:AsyncSession):
         Project_data_dict = Project_data.model_dump()
         new_Project =Project(
             **Project_data_dict
         )
+        new_Project.user_uid = user_uid
         session.add(new_Project)
         await session.commit()
         return new_Project
